@@ -184,7 +184,7 @@ class AnimeModel {
   }
 
   // Atualizar um anime
-  static async update(
+  update(
     id,
     title,
     description,
@@ -216,7 +216,7 @@ class AnimeModel {
   }
 
   // Remover um anime
-  static async delete(id) {
+  delete(id) {
     const anime = this.findById(id);
     if (!anime) {
       return null;
