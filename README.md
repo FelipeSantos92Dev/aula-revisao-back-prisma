@@ -232,26 +232,18 @@ class AnimeModel {
 export default new AnimeModel();
 ```
 
-### Passo 9: Criar o controlador de Animes
+### Passo 8: Criar o controlador de Animes
 
 Crie o arquivo `src/controllers/animeController.js`:
 
 ```javascript
-const AnimeModel = require("../models/animeModel");
+import AnimeModel from "../models/animeModel.js";
 
 class AnimeController {
   // GET /api/animes
-  static async getAllAnimes(req, res) {
+  getAllAnimes(req, res) {
     try {
-      const { title } = req.query;
-
-      // Se houver um parâmetro de pesquisa por título
-      if (title) {
-        const animes = await AnimeModel.searchByTitle(title);
-        return res.json(animes);
-      }
-
-      const animes = await AnimeModel.findAll();
+      const animes = AnimeModel.findAll();
       res.json(animes);
     } catch (error) {
       console.error("Erro ao buscar animes:", error);
@@ -260,11 +252,11 @@ class AnimeController {
   }
 
   // GET /api/animes/:id
-  static async getAnimeById(req, res) {
+  getAnimeById(req, res) {
     try {
       const { id } = req.params;
 
-      const anime = await AnimeModel.findById(id);
+      const anime = AnimeModel.findById(id);
 
       if (!anime) {
         return res.status(404).json({ error: "Anime não encontrado" });
@@ -278,19 +270,52 @@ class AnimeController {
   }
 
   // POST /api/animes
-  static async createAnime(req, res) {
+  createAnime(req, res) {
     try {
       // Validação básica
-      const { title, episodes } = req.body;
+      const {
+        title,
+        description,
+        episodes,
+        releaseYear,
+        studio,
+        genres,
+        rating,
+        imageUrl,
+      } = req.body;
 
-      if (!title) {
+      // Verifica se o título do anime foi fornecido
+
+      if (
+        !title ||
+        !description ||
+        !episodes ||
+        !releaseYear ||
+        !studio ||
+        !genres ||
+        !rating ||
+        !imageUrl
+      ) {
         return res
           .status(400)
-          .json({ error: "O título do anime é obrigatório" });
+          .json({ error: "Todos os campos são obrigatórios" });
       }
 
       // Criar o novo anime
-      const newAnime = await AnimeModel.create(req.body);
+      const newAnime = AnimeModel.create(
+        title,
+        description,
+        episodes,
+        releaseYear,
+        studio,
+        genres,
+        rating,
+        imageUrl
+      );
+
+      if (!newAnime) {
+        return res.status(400).json({ error: "Erro ao criar anime" });
+      }
 
       res.status(201).json(newAnime);
     } catch (error) {
@@ -300,12 +325,32 @@ class AnimeController {
   }
 
   // PUT /api/animes/:id
-  static async updateAnime(req, res) {
+  updateAnime(req, res) {
     try {
       const { id } = req.params;
+      const {
+        title,
+        description,
+        episodes,
+        releaseYear,
+        studio,
+        genres,
+        rating,
+        imageUrl,
+      } = req.body;
 
       // Atualizar o anime
-      const updatedAnime = await AnimeModel.update(id, req.body);
+      const updatedAnime = AnimeModel.update(
+        id,
+        title,
+        description,
+        episodes,
+        releaseYear,
+        studio,
+        genres,
+        rating,
+        imageUrl
+      );
 
       if (!updatedAnime) {
         return res.status(404).json({ error: "Anime não encontrado" });
@@ -319,12 +364,12 @@ class AnimeController {
   }
 
   // DELETE /api/animes/:id
-  static async deleteAnime(req, res) {
+  deleteAnime(req, res) {
     try {
       const { id } = req.params;
 
       // Remover o anime
-      const result = await AnimeModel.delete(id);
+      const result = AnimeModel.delete(id);
 
       if (!result) {
         return res.status(404).json({ error: "Anime não encontrado" });
@@ -338,16 +383,16 @@ class AnimeController {
   }
 }
 
-module.exports = AnimeController;
+export default new AnimeController();
 ```
 
-### Passo 10: Criar as rotas
+### Passo 9: Criar as rotas
 
 Crie o arquivo `src/routes/animeRoutes.js`:
 
 ```javascript
-const express = require("express");
-const AnimeController = require("../controllers/animeController");
+import express from "express";
+import AnimeController from "../controllers/animeController.js";
 
 const router = express.Router();
 
@@ -367,10 +412,10 @@ router.put("/:id", AnimeController.updateAnime);
 // DELETE /api/animes/:id - Remover um anime
 router.delete("/:id", AnimeController.deleteAnime);
 
-module.exports = router;
+export default router;
 ```
 
-### Passo 11: Iniciar o servidor
+### Passo 10: Iniciar o servidor
 
 ```bash
 npm run dev
