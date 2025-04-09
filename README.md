@@ -285,7 +285,6 @@ class AnimeController {
       } = req.body;
 
       // Verifica se o título do anime foi fornecido
-
       if (
         !title ||
         !description ||
@@ -486,20 +485,434 @@ Neste projeto, seguimos algumas boas práticas de desenvolvimento:
    - Validação básica implementada nos controllers
    - Pode ser aprimorada com bibliotecas como Joi ou Zod
 
-## Considerações Finais
+## Adaptando o Projeto para Usar o Prisma ORM
 
-Este projeto é uma base simplificada que usa armazenamento em memória. Em uma aplicação real, você provavelmente usaria um banco de dados como MongoDB ou PostgreSQL com Prisma ou outro ORM.
+Vamos transformar nosso projeto para utilizar o Prisma ORM para persistência de dados em um banco de dados real, ao invés de usar o armazenamento em memória.
 
-O armazenamento em memória tem limitações importantes:
+### Passo 1: Instalar o Prisma
 
-- Os dados são perdidos quando o servidor é reiniciado
-- Não é escalável para múltiplas instâncias do servidor
-- Não é adequado para dados persistentes em produção
+```bash
+# Instalar o Prisma CLI e o cliente Prisma
+npm install prisma @prisma/client
+```
 
-Para expandir este projeto, você poderia adicionar:
+### Passo 2: Inicializar o Prisma
 
-- Autenticação e autorização
-- Paginação de resultados
-- Testes automatizados
-- Documentação da API com Swagger
-- Persistência com um banco de dados real
+```bash
+npx prisma init
+```
+
+Este comando cria:
+
+- Uma pasta `prisma` com um arquivo `schema.prisma`
+- Um arquivo `.env` para configuração da conexão com o banco de dados
+
+### Passo 3: Configurar o banco de dados
+
+Edite o arquivo `.env` para adicionar a URL de conexão com o banco de dados:
+
+```env
+PORT=4000
+
+# Para SQLite
+DATABASE_URL="file:./dev.db"
+
+# Ou Para PostgreSQL
+# DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/animes?schema=public"
+```
+
+Neste exemplo, estamos usando SQLite para facilitar o desenvolvimento, mas em um ambiente de produção, você provavelmente usaria PostgreSQL, MySQL ou MongoDB.
+
+### Passo 4: Definir o modelo no Prisma
+
+Edite o arquivo `prisma/schema.prisma`:
+
+```prisma
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Anime {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  episodes    Int
+  releaseYear Int
+  studio      String
+  genres      String
+  rating      Float
+  imageUrl    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+### Passo 5: Criar a instância do cliente Prisma
+
+Crie o arquivo `prisma/prisma.js`:
+
+```javascript
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+export default prisma;
+```
+
+### Passo 6: Executar a migração do banco de dados
+
+```bash
+npx prisma migrate dev
+```
+
+### Passo 7: Adaptar o modelo Anime
+
+Substitua o código do arquivo `src/models/animeModel.js` pelo seguinte:
+
+```javascript
+import prisma from "../../prisma/prisma.js";
+
+class AnimeModel {
+  // Obter todos os animes
+  async findAll() {
+    const animes = await prisma.anime.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    console.log(animes);
+
+    return animes;
+  }
+
+  // Obter um anime pelo ID
+  async findById(id) {
+    const anime = await prisma.anime.findUnique({
+      where: {
+        id: Number(id),
+      },
+    });
+
+    return anime;
+  }
+
+  // Criar um novo anime
+  async create(
+    title,
+    description,
+    episodes,
+    releaseYear,
+    studio,
+    genres,
+    rating,
+    imageUrl
+  ) {
+    const newAnime = await prisma.anime.create({
+      data: {
+        title,
+        description,
+        episodes,
+        releaseYear,
+        studio,
+        genres,
+        rating,
+        imageUrl,
+      },
+    });
+
+    return newAnime;
+  }
+
+  // Atualizar um anime
+  async update(
+    id,
+    title,
+    description,
+    episodes,
+    releaseYear,
+    studio,
+    genres,
+    rating,
+    imageUrl
+  ) {
+    const anime = await this.findById(id);
+
+    if (!anime) {
+      return null;
+    }
+
+    // Atualize o anime existente com os novos dados
+    const data = {};
+    if (title !== undefined) {
+      data.title = title;
+    }
+    if (description !== undefined) {
+      data.description = description;
+    }
+    if (episodes !== undefined) {
+      data.episodes = episodes;
+    }
+    if (releaseYear !== undefined) {
+      data.releaseYear = releaseYear;
+    }
+    if (studio !== undefined) {
+      data.studio = studio;
+    }
+    if (genres !== undefined) {
+      data.genres = genres;
+    }
+    if (rating !== undefined) {
+      data.rating = rating;
+    }
+    if (imageUrl !== undefined) {
+      data.imageUrl = imageUrl;
+    }
+
+    const animeUpdated = await prisma.anime.update({
+      where: {
+        id: Number(id),
+      },
+      data,
+    });
+
+    return animeUpdated;
+  }
+
+  // Remover um anime
+  async delete(id) {
+    const anime = await this.findById(id);
+
+    if (!anime) {
+      return null;
+    }
+
+    await prisma.anime.delete({
+      where: {
+        id: Number(id),
+      },
+    });
+
+    return true;
+  }
+}
+
+export default new AnimeModel();
+```
+
+### Passo 8: Adaptar o controller para trabalhar com operações assíncronas
+
+Modifique o arquivo `src/controllers/animeController.js` para trabalhar com as operações assíncronas do Prisma:
+
+```javascript
+import AnimeModel from "../models/animeModel.js";
+
+class AnimeController {
+  // GET /api/animes
+  async getAllAnimes(req, res) {
+    try {
+      const animes = await AnimeModel.findAll();
+      res.json(animes);
+    } catch (error) {
+      console.error("Erro ao buscar animes:", error);
+      res.status(500).json({ error: "Erro ao buscar animes" });
+    }
+  }
+
+  // GET /api/animes/:id
+  async getAnimeById(req, res) {
+    try {
+      const { id } = req.params;
+
+      const anime = await AnimeModel.findById(id);
+
+      if (!anime) {
+        return res.status(404).json({ error: "Anime não encontrado" });
+      }
+
+      res.json(anime);
+    } catch (error) {
+      console.error("Erro ao buscar anime:", error);
+      res.status(500).json({ error: "Erro ao buscar anime" });
+    }
+  }
+
+  // POST /api/animes
+  async createAnime(req, res) {
+    try {
+      // Validação básica
+      const {
+        title,
+        description,
+        episodes,
+        releaseYear,
+        studio,
+        genres,
+        rating,
+        imageUrl,
+      } = req.body;
+
+      // Verifica se o título do anime foi fornecido
+      if (
+        !title ||
+        !description ||
+        !episodes ||
+        !releaseYear ||
+        !studio ||
+        !genres ||
+        !rating ||
+        !imageUrl
+      ) {
+        return res
+          .status(400)
+          .json({ error: "Todos os campos são obrigatórios" });
+      }
+
+      // Criar o novo anime
+      const newAnime = await AnimeModel.create(
+        title,
+        description,
+        episodes,
+        releaseYear,
+        studio,
+        genres,
+        rating,
+        imageUrl
+      );
+
+      if (!newAnime) {
+        return res.status(400).json({ error: "Erro ao criar anime" });
+      }
+
+      res.status(201).json(newAnime);
+    } catch (error) {
+      console.error("Erro ao criar anime:", error);
+      res.status(500).json({ error: "Erro ao criar anime" });
+    }
+  }
+
+  // PUT /api/animes/:id
+  async updateAnime(req, res) {
+    try {
+      const { id } = req.params;
+      const {
+        title,
+        description,
+        episodes,
+        releaseYear,
+        studio,
+        genres,
+        rating,
+        imageUrl,
+      } = req.body;
+
+      // Atualizar o anime
+      const updatedAnime = await AnimeModel.update(
+        id,
+        title,
+        description,
+        episodes,
+        releaseYear,
+        studio,
+        genres,
+        rating,
+        imageUrl
+      );
+
+      if (!updatedAnime) {
+        return res.status(404).json({ error: "Anime não encontrado" });
+      }
+
+      res.json(updatedAnime);
+    } catch (error) {
+      console.error("Erro ao atualizar anime:", error);
+      res.status(500).json({ error: "Erro ao atualizar anime" });
+    }
+  }
+
+  // DELETE /api/animes/:id
+  async deleteAnime(req, res) {
+    try {
+      const { id } = req.params;
+
+      // Remover o anime
+      const result = await AnimeModel.delete(id);
+
+      if (!result) {
+        return res.status(404).json({ error: "Anime não encontrado" });
+      }
+
+      res.status(204).end(); // Resposta sem conteúdo
+    } catch (error) {
+      console.error("Erro ao remover anime:", error);
+      res.status(500).json({ error: "Erro ao remover anime" });
+    }
+  }
+}
+
+export default new AnimeController();
+```
+
+### Passo 9: Atualizar o servidor para usar as rotas
+
+Atualize o arquivo `src/server.js`:
+
+```javascript
+import express from "express";
+import { config } from "dotenv";
+import animeRoutes from "./routes/animeRoutes.js";
+
+config(); // Carrega variáveis de ambiente do arquivo .env
+const port = process.env.PORT || 3000;
+
+// Inicializa o Express
+const app = express();
+
+app.use(express.json()); // Parse de JSON
+
+// Rota base para verificar se o servidor está rodando
+app.get("/", (req, res) => {
+  res.json({ message: "API de Coleção de Animes funcionando!" });
+});
+
+// Usar as rotas de animes
+app.use("/animes", animeRoutes);
+
+// Tratamento para encerrar o servidor e fechar conexões corretamente
+const server = app.listen(port, () => {
+  console.log(`Servidor rodando na porta ${port}`);
+});
+
+
+## Vantagens de Usar o Prisma ORM
+
+A principal diferença entre o projeto original e este com Prisma é:
+
+1. **Persistência de dados**: Os dados não são mais perdidos quando o servidor é reiniciado
+2. **Operações assíncronas reais**: As operações de banco de dados são assíncronas por natureza
+3. **Segurança e validação**: O Prisma ajuda a prevenir injeção de SQL e validar tipos de dados
+4. **Escalabilidade**: O projeto pode agora ser escalado para múltiplas instâncias do servidor
+5. **Migrations**: O Prisma gerencia as alterações no schema do banco de dados
+
+## Próximos Passos
+
+Algumas melhorias que você pode adicionar ao projeto:
+
+1. **Relações entre modelos**: Adicionar modelos relacionados como Gêneros, Estúdios, etc.
+2. **Autenticação e autorização**: Implementar JWT para proteger as rotas
+3. **Paginação e filtros**: Melhorar a rota de listagem com opções de paginação e filtros
+4. **Validação avançada**: Usar bibliotecas como Joi ou Zod para validação mais robusta
+5. **Testes automatizados**: Adicionar testes unitários e de integração
+6. **Logging**: Implementar um sistema de log mais robusto
+7. **Documentação da API**: Adicionar Swagger ou similar para documentar a API
+
+Agora você tem uma API REST completa com persistência de dados usando Node.js, Express e Prisma ORM!
+```
