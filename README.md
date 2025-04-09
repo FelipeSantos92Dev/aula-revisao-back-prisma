@@ -890,7 +890,7 @@ app.use("/animes", animeRoutes);
 const server = app.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);
 });
-
+```
 
 ## Vantagens de Usar o Prisma ORM
 
@@ -915,4 +915,7 @@ Algumas melhorias que você pode adicionar ao projeto:
 7. **Documentação da API**: Adicionar Swagger ou similar para documentar a API
 
 Agora você tem uma API REST completa com persistência de dados usando Node.js, Express e Prisma ORM!
+
+```
+
 ```
