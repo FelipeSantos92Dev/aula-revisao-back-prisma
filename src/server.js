@@ -1,5 +1,6 @@
 import express from "express";
 import { config } from "dotenv";
+import cors from "cors"; // Importa o middleware CORS
 
 import animesRouter from "./routes/animeRoutes.js";
 
@@ -8,6 +9,7 @@ const port = process.env.PORT || 4001; // Define a porta do servidor
 
 // Inicializa o Express
 const app = express();
+app.use(cors()); // Habilita CORS para todas as rotas
 
 app.use(express.json()); // Parse de JSON
 

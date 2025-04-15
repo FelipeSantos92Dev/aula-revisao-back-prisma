@@ -40,7 +40,7 @@ class AnimeModel {
       },
     });
 
-    console.log(animes);
+    //console.log(animes);
 
     return animes;
   }
